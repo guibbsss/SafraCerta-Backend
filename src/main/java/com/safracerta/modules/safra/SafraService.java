@@ -33,10 +33,8 @@ public class SafraService {
 
   @Transactional
   public SafraResponseDto criar(SafraRequestDto dto) {
-    Talhao talhao =
-        talhaoRepository.findById(dto.talhaoId()).orElseThrow(this::talhaoNotFound);
     Safra s = new Safra();
-    s.setTalhao(talhao);
+    s.setTalhao(resolveTalhao(dto.talhaoId()));
     apply(s, dto);
     return toResponse(safraRepository.save(s));
   }
@@ -44,11 +42,16 @@ public class SafraService {
   @Transactional
   public SafraResponseDto atualizar(Long id, SafraRequestDto dto) {
     Safra s = safraRepository.findById(id).orElseThrow(this::notFound);
-    Talhao talhao =
-        talhaoRepository.findById(dto.talhaoId()).orElseThrow(this::talhaoNotFound);
-    s.setTalhao(talhao);
+    s.setTalhao(resolveTalhao(dto.talhaoId()));
     apply(s, dto);
     return toResponse(safraRepository.save(s));
+  }
+
+  private Talhao resolveTalhao(Long talhaoId) {
+    if (talhaoId == null) {
+      return null;
+    }
+    return talhaoRepository.findById(talhaoId).orElseThrow(this::talhaoNotFound);
   }
 
   @Transactional
@@ -60,18 +63,30 @@ public class SafraService {
   }
 
   private void apply(Safra s, SafraRequestDto dto) {
+    s.setNome(dto.nome());
     s.setCultura(dto.cultura());
+    s.setStatus(dto.status());
     s.setDataPlantio(dto.dataPlantio());
-    s.setDataColheita(dto.dataColheita());
+    s.setDataColheitaPrevista(dto.dataColheitaPrevista());
+    s.setDataColheitaReal(dto.dataColheitaReal());
+    s.setProducaoEstimada(dto.producaoEstimada());
+    s.setProducaoReal(dto.producaoReal());
   }
 
   private SafraResponseDto toResponse(Safra s) {
+    Talhao talhao = s.getTalhao();
     return new SafraResponseDto(
         s.getId(),
-        s.getTalhao().getId(),
+        s.getNome(),
+        talhao != null ? talhao.getId() : null,
+        talhao != null ? talhao.getNome() : null,
         s.getCultura(),
+        s.getStatus(),
         s.getDataPlantio(),
-        s.getDataColheita());
+        s.getDataColheitaPrevista(),
+        s.getDataColheitaReal(),
+        s.getProducaoEstimada(),
+        s.getProducaoReal());
   }
 
   private ResponseStatusException notFound() {
