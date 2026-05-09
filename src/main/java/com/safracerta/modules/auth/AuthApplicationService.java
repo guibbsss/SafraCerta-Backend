@@ -114,7 +114,12 @@ public class AuthApplicationService {
         "Cadastro recebido. Aguarde a liberação do acesso para entrar.");
   }
 
-  @Transactional
+  /**
+   * Login numa única transação: após validar credenciais, gera JWT (validade {@code jwt.expiration-ms},
+   * ex. 24 h), persiste em {@link Usuario#setAutenticacao} e devolve o mesmo token na resposta —
+   * BD e cliente ficam sempre alinhados.
+   */
+  @Transactional(rollbackFor = Exception.class)
   public LoginResponseDto login(LoginRequestDto body) {
     Usuario u =
         usuarioRepository

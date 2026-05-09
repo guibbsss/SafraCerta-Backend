@@ -1,0 +1,10 @@
+USE safracerta;
+
+CREATE TABLE permissao_categoria (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  nome VARCHAR(150) NOT NULL,
+  descricao VARCHAR(500) NULL,
+  ativo TINYINT(1) NOT NULL DEFAULT 1,
+  excluido TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
