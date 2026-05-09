@@ -32,6 +32,12 @@ public class Usuario {
   @JoinColumn(name = "perfil_id", nullable = false)
   private Perfil perfil;
 
+  @Column(columnDefinition = "TEXT")
+  private String autenticacao;
+
+  @Column(nullable = false)
+  private boolean ativo = false;
+
   public Long getId() {
     return id;
   }
@@ -70,5 +76,21 @@ public class Usuario {
 
   public void setPerfil(Perfil perfil) {
     this.perfil = perfil;
+  }
+
+  public String getAutenticacao() {
+    return autenticacao;
+  }
+
+  public void setAutenticacao(String autenticacao) {
+    this.autenticacao = autenticacao;
+  }
+
+  public boolean isAtivo() {
+    return ativo;
+  }
+
+  public void setAtivo(boolean ativo) {
+    this.ativo = ativo;
   }
 }

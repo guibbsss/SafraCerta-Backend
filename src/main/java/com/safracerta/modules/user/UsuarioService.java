@@ -6,6 +6,7 @@ import com.safracerta.modules.user.dto.UsuarioRequestDto;
 import com.safracerta.modules.user.dto.UsuarioResponseDto;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,10 +16,15 @@ public class UsuarioService {
 
   private final UsuarioRepository usuarioRepository;
   private final PerfilRepository perfilRepository;
+  private final PasswordEncoder passwordEncoder;
 
-  public UsuarioService(UsuarioRepository usuarioRepository, PerfilRepository perfilRepository) {
+  public UsuarioService(
+      UsuarioRepository usuarioRepository,
+      PerfilRepository perfilRepository,
+      PasswordEncoder passwordEncoder) {
     this.usuarioRepository = usuarioRepository;
     this.perfilRepository = perfilRepository;
+    this.passwordEncoder = passwordEncoder;
   }
 
   @Transactional(readOnly = true)
@@ -37,7 +43,7 @@ public class UsuarioService {
         perfilRepository.findById(dto.perfilId()).orElseThrow(this::perfilNotFound);
     Usuario u = new Usuario();
     u.setEmail(dto.email());
-    u.setSenha(dto.senha());
+    u.setSenha(passwordEncoder.encode(dto.senha()));
     u.setNome(dto.nome());
     u.setPerfil(perfil);
     return toResponse(usuarioRepository.save(u));
@@ -49,7 +55,7 @@ public class UsuarioService {
     Perfil perfil =
         perfilRepository.findById(dto.perfilId()).orElseThrow(this::perfilNotFound);
     u.setEmail(dto.email());
-    u.setSenha(dto.senha());
+    u.setSenha(passwordEncoder.encode(dto.senha()));
     u.setNome(dto.nome());
     u.setPerfil(perfil);
     return toResponse(usuarioRepository.save(u));
