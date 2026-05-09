@@ -1,7 +1,11 @@
 package com.safracerta.modules.fazenda;
 
-import com.safracerta.modules.fazenda.dto.FazendaRequestDto;
+import com.safracerta.modules.fazenda.dto.FazendaCreateDto;
 import com.safracerta.modules.fazenda.dto.FazendaResponseDto;
+import com.safracerta.modules.fazenda.dto.FazendaUpdateDto;
+import com.safracerta.modules.user.Usuario;
+import com.safracerta.modules.user.UsuarioRepository;
+import java.security.SecureRandom;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -11,10 +15,23 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class FazendaService {
 
-  private final FazendaRepository fazendaRepository;
+  private static final String CODIGO_CHARSET =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  private static final int CODIGO_LEN = 10;
+  private static final int MAX_GERACAO_TENTATIVAS = 16;
 
-  public FazendaService(FazendaRepository fazendaRepository) {
+  private final FazendaRepository fazendaRepository;
+  private final UsuarioRepository usuarioRepository;
+  private final FazendaHasUsuarioRepository fazendaHasUsuarioRepository;
+  private final SecureRandom secureRandom = new SecureRandom();
+
+  public FazendaService(
+      FazendaRepository fazendaRepository,
+      UsuarioRepository usuarioRepository,
+      FazendaHasUsuarioRepository fazendaHasUsuarioRepository) {
     this.fazendaRepository = fazendaRepository;
+    this.usuarioRepository = usuarioRepository;
+    this.fazendaHasUsuarioRepository = fazendaHasUsuarioRepository;
   }
 
   @Transactional(readOnly = true)
@@ -23,21 +40,48 @@ public class FazendaService {
   }
 
   @Transactional(readOnly = true)
+  public List<FazendaResponseDto> listarPorUsuario(Long usuarioId) {
+    return fazendaRepository.findAllByUsuarioVinculado(usuarioId).stream()
+        .map(this::toResponse)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
   public FazendaResponseDto buscar(Long id) {
     return fazendaRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
   }
 
   @Transactional
-  public FazendaResponseDto criar(FazendaRequestDto dto) {
+  public FazendaResponseDto criar(FazendaCreateDto dto) {
+    Usuario proprietario =
+        usuarioRepository
+            .findById(dto.proprietarioId())
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Usuário proprietário não encontrado"));
+
     Fazenda f = new Fazenda();
-    apply(f, dto);
-    return toResponse(fazendaRepository.save(f));
+    f.setNome(dto.nome());
+    f.setLocalizacao(dto.localizacao());
+    f.setAreaTotal(dto.areaTotal());
+    f.setProprietario(proprietario);
+    f.setCodFazenda(gerarCodigoFazendaUnico());
+
+    Fazenda saved = fazendaRepository.save(f);
+    fazendaHasUsuarioRepository.save(
+        new FazendaHasUsuario(
+            new FazendaUsuarioId(saved.getId(), proprietario.getId())));
+
+    return toResponse(saved);
   }
 
   @Transactional
-  public FazendaResponseDto atualizar(Long id, FazendaRequestDto dto) {
+  public FazendaResponseDto atualizar(Long id, FazendaUpdateDto dto) {
     Fazenda f = fazendaRepository.findById(id).orElseThrow(this::notFound);
-    apply(f, dto);
+    f.setNome(dto.nome());
+    f.setLocalizacao(dto.localizacao());
+    f.setAreaTotal(dto.areaTotal());
     return toResponse(fazendaRepository.save(f));
   }
 
@@ -49,16 +93,34 @@ public class FazendaService {
     fazendaRepository.deleteById(id);
   }
 
-  private void apply(Fazenda f, FazendaRequestDto dto) {
-    f.setNome(dto.nome());
-    f.setLocalizacao(dto.localizacao());
-    f.setAreaTotal(dto.areaTotal());
-    f.setProprietario(dto.proprietario());
+  private String gerarCodigoFazendaUnico() {
+    for (int tentativa = 0; tentativa < MAX_GERACAO_TENTATIVAS; tentativa++) {
+      String codigo = gerarCodigoAleatorio();
+      if (!fazendaRepository.existsByCodFazenda(codigo)) {
+        return codigo;
+      }
+    }
+    throw new ResponseStatusException(
+        HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível gerar código único para a fazenda");
+  }
+
+  private String gerarCodigoAleatorio() {
+    StringBuilder sb = new StringBuilder(CODIGO_LEN);
+    for (int i = 0; i < CODIGO_LEN; i++) {
+      sb.append(CODIGO_CHARSET.charAt(secureRandom.nextInt(CODIGO_CHARSET.length())));
+    }
+    return sb.toString();
   }
 
   private FazendaResponseDto toResponse(Fazenda f) {
+    Long proprietarioId = f.getProprietario() != null ? f.getProprietario().getId() : null;
     return new FazendaResponseDto(
-        f.getId(), f.getNome(), f.getLocalizacao(), f.getAreaTotal(), f.getProprietario());
+        f.getId(),
+        f.getNome(),
+        f.getLocalizacao(),
+        f.getAreaTotal(),
+        f.getCodFazenda(),
+        proprietarioId);
   }
 
   private ResponseStatusException notFound() {

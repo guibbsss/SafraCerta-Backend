@@ -20,3 +20,7 @@ ADD CONSTRAINT `fk_proprietario_user`
   REFERENCES `safracerta`.`usuario` (`id`)
   ON DELETE NO ACTION
   ON UPDATE NO ACTION;
+
+
+ALTER TABLE `safracerta`.`fazenda` 
+ADD COLUMN `cod_fazenda` VARCHAR(15) NULL AFTER `proprietario`;

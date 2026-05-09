@@ -1,10 +1,14 @@
 package com.safracerta.modules.fazenda;
 
+import com.safracerta.modules.user.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
@@ -25,8 +29,12 @@ public class Fazenda {
   @Column(name = "area_total", precision = 14, scale = 4)
   private BigDecimal areaTotal;
 
-  @Column(length = 200)
-  private String proprietario;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "proprietario", nullable = false)
+  private Usuario proprietario;
+
+  @Column(name = "cod_fazenda", nullable = false, unique = true, length = 15)
+  private String codFazenda;
 
   public Long getId() {
     return id;
@@ -60,11 +68,19 @@ public class Fazenda {
     this.areaTotal = areaTotal;
   }
 
-  public String getProprietario() {
+  public Usuario getProprietario() {
     return proprietario;
   }
 
-  public void setProprietario(String proprietario) {
+  public void setProprietario(Usuario proprietario) {
     this.proprietario = proprietario;
+  }
+
+  public String getCodFazenda() {
+    return codFazenda;
+  }
+
+  public void setCodFazenda(String codFazenda) {
+    this.codFazenda = codFazenda;
   }
 }

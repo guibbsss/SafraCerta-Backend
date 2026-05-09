@@ -1,7 +1,8 @@
 package com.safracerta.modules.fazenda;
 
-import com.safracerta.modules.fazenda.dto.FazendaRequestDto;
+import com.safracerta.modules.fazenda.dto.FazendaCreateDto;
 import com.safracerta.modules.fazenda.dto.FazendaResponseDto;
+import com.safracerta.modules.fazenda.dto.FazendaUpdateDto;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,11 @@ public class FazendaController {
     return fazendaService.listar();
   }
 
+  @GetMapping("/usuario/{usuarioId}")
+  public List<FazendaResponseDto> listarPorUsuario(@PathVariable Long usuarioId) {
+    return fazendaService.listarPorUsuario(usuarioId);
+  }
+
   @GetMapping("/{id}")
   public FazendaResponseDto buscar(@PathVariable Long id) {
     return fazendaService.buscar(id);
@@ -37,13 +43,13 @@ public class FazendaController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public FazendaResponseDto criar(@Valid @RequestBody FazendaRequestDto body) {
+  public FazendaResponseDto criar(@Valid @RequestBody FazendaCreateDto body) {
     return fazendaService.criar(body);
   }
 
   @PutMapping("/{id}")
   public FazendaResponseDto atualizar(
-      @PathVariable Long id, @Valid @RequestBody FazendaRequestDto body) {
+      @PathVariable Long id, @Valid @RequestBody FazendaUpdateDto body) {
     return fazendaService.atualizar(id, body);
   }
 
