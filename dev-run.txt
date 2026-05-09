@@ -1,0 +1,37 @@
+SafraCerta – API local
+========================
+
+Pré-requisitos
+--------------
+- Java 17+
+- MySQL 8 em execução (usuário com permissão para criar base, se usar criação automática)
+
+Banco de dados
+--------------
+Por padrão a aplicação usa:
+  URL: jdbc:mysql://localhost:3306/safracerta
+  Usuário: root
+  Senha: (vazia)
+
+A URL inclui createDatabaseIfNotExist=true: a base "safracerta" é criada se ainda não existir.
+
+Para outro host, usuário ou senha, defina variáveis de ambiente antes de subir a API:
+  SPRING_DATASOURCE_URL
+  SPRING_DATASOURCE_USERNAME
+  SPRING_DATASOURCE_PASSWORD
+
+Subir a API
+-----------
+Na pasta do backend:
+
+  Windows:  .\mvnw.cmd spring-boot:run
+  Linux/mac: ./mvnw spring-boot:run
+
+Rotas úteis (prefixo /api)
+--------------------------
+- GET  http://localhost:8080/api/health
+- POST http://localhost:8080/api/auth/login
+       Corpo JSON: {"email":"user@exemplo.com","password":"qualquer"}
+       Resposta: token e user (stub de desenvolvimento; substituir depois por auth real.)
+
+O front Angular (npm start) usa apiUrl http://localhost:8080/api – alinhado ao context-path acima.
