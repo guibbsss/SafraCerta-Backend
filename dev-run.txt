@@ -4,7 +4,7 @@ SafraCerta – API local
 Pré-requisitos
 --------------
 - Java 17+
-- MySQL 8 em execução (usuário com permissão para criar base, se usar criação automática)
+- MySQL 8 em execução; crie a base de dados `safracerta` antes de subir a API
 
 Banco de dados
 --------------
@@ -12,8 +12,6 @@ Por padrão a aplicação usa:
   URL: jdbc:mysql://localhost:3306/safracerta
   Usuário: root
   Senha: (vazia)
-
-A URL inclui createDatabaseIfNotExist=true: a base "safracerta" é criada se ainda não existir.
 
 Para outro host, usuário ou senha, defina variáveis de ambiente antes de subir a API:
   SPRING_DATASOURCE_URL
