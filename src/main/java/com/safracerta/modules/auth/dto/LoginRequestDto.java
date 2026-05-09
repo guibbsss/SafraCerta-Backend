@@ -1,4 +1,4 @@
-package com.safracerta.modules.user.dto;
+package com.safracerta.modules.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

@@ -1,3 +1,3 @@
-package com.safracerta.modules.user.dto;
+package com.safracerta.modules.auth.dto;
 
 public record UserDto(Long id, String email, String nome) {}

@@ -1,8 +1,8 @@
-package com.safracerta.controller;
+package com.safracerta.modules.auth;
 
-import com.safracerta.dto.LoginRequestDto;
-import com.safracerta.dto.LoginResponseDto;
-import com.safracerta.dto.UserDto;
+import com.safracerta.modules.auth.dto.LoginRequestDto;
+import com.safracerta.modules.auth.dto.LoginResponseDto;
+import com.safracerta.modules.auth.dto.UserDto;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
