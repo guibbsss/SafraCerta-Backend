@@ -16,6 +16,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  show-actuator: false
+
 logging:
   level:
     org.hibernate: WARN

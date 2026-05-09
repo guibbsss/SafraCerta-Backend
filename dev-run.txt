@@ -33,3 +33,12 @@ Rotas úteis (prefixo /api)
        Resposta: token e user (stub de desenvolvimento; substituir depois por auth real.)
 
 O front Angular (npm start) usa apiUrl http://localhost:8080/api – alinhado ao context-path acima.
+
+Documentação OpenAPI (Swagger)
+------------------------------
+Com a API em execução:
+  UI:     http://localhost:8080/api/swagger-ui/index.html
+          (atalho: http://localhost:8080/api/swagger-ui.html)
+  JSON:   http://localhost:8080/api/v3/api-docs
+
+Novos controllers e métodos @RestController aparecem na UI automaticamente (SpringDoc).

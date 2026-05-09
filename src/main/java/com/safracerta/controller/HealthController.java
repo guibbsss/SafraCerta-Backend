@@ -1,10 +1,12 @@
 package com.safracerta.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Tag(name = "Health", description = "Disponibilidade da API")
 public class HealthController {
 
   @GetMapping("/health")
