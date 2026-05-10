@@ -12,6 +12,7 @@ import com.safracerta.modules.fazenda.FazendaRepository;
 import com.safracerta.modules.fazenda.FazendaUsuarioId;
 import com.safracerta.modules.perfil.Perfil;
 import com.safracerta.modules.perfil.PerfilRepository;
+import com.safracerta.modules.permissao.PerfilHasPermissaoRepository;
 import com.safracerta.modules.user.Usuario;
 import com.safracerta.modules.user.UsuarioRepository;
 import org.slf4j.Logger;
@@ -23,12 +24,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Service
 public class AuthApplicationService {
 
   private static final Logger log = LoggerFactory.getLogger(AuthApplicationService.class);
 
   private final UsuarioRepository usuarioRepository;
+  private final PerfilHasPermissaoRepository perfilHasPermissaoRepository;
   private final FazendaRepository fazendaRepository;
   private final FazendaHasUsuarioRepository fazendaHasUsuarioRepository;
   private final PerfilRepository perfilRepository;
@@ -38,6 +42,7 @@ public class AuthApplicationService {
 
   public AuthApplicationService(
       UsuarioRepository usuarioRepository,
+      PerfilHasPermissaoRepository perfilHasPermissaoRepository,
       FazendaRepository fazendaRepository,
       FazendaHasUsuarioRepository fazendaHasUsuarioRepository,
       PerfilRepository perfilRepository,
@@ -45,6 +50,7 @@ public class AuthApplicationService {
       JwtService jwtService,
       @Value("${app.registro.perfil-id}") long perfilRegistroId) {
     this.usuarioRepository = usuarioRepository;
+    this.perfilHasPermissaoRepository = perfilHasPermissaoRepository;
     this.fazendaRepository = fazendaRepository;
     this.fazendaHasUsuarioRepository = fazendaHasUsuarioRepository;
     this.perfilRepository = perfilRepository;
@@ -139,8 +145,29 @@ public class AuthApplicationService {
     u.setAutenticacao(jwt);
     usuarioRepository.save(u);
 
-    UserDto userDto =
-        new UserDto(u.getId(), u.getEmail(), u.getNome(), u.isAtivo());
+    UserDto userDto = toUserDto(u);
     return new LoginResponseDto(jwt, userDto);
+  }
+
+  @Transactional(readOnly = true)
+  public UserDto me(Long usuarioId) {
+    Usuario u =
+        usuarioRepository
+            .findById(usuarioId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilizador inválido"));
+    return toUserDto(u);
+  }
+
+  private UserDto toUserDto(Usuario u) {
+    Long perfilId = u.getPerfil() != null ? u.getPerfil().getId() : null;
+    List<Long> permissaoIds = perfilId != null ? permissaoIdsParaPerfil(perfilId) : List.of();
+    return new UserDto(u.getId(), u.getEmail(), u.getNome(), u.isAtivo(), perfilId, permissaoIds);
+  }
+
+  private List<Long> permissaoIdsParaPerfil(Long perfilId) {
+    return perfilHasPermissaoRepository.findConcedidasVisiveisPorPerfil(perfilId).stream()
+        .map(h -> h.getPermissao().getId())
+        .sorted()
+        .toList();
   }
 }
