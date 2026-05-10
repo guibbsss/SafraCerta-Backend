@@ -1,9 +1,13 @@
 package com.safracerta.modules.safra;
 
+import com.safracerta.modules.safra.dto.SafraExclusaoRequestDto;
 import com.safracerta.modules.safra.dto.SafraRequestDto;
 import com.safracerta.modules.safra.dto.SafraResponseDto;
 import com.safracerta.modules.talhao.Talhao;
 import com.safracerta.modules.talhao.TalhaoRepository;
+import com.safracerta.modules.user.Usuario;
+import com.safracerta.modules.user.UsuarioRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,20 +19,28 @@ public class SafraService {
 
   private final SafraRepository safraRepository;
   private final TalhaoRepository talhaoRepository;
+  private final UsuarioRepository usuarioRepository;
 
-  public SafraService(SafraRepository safraRepository, TalhaoRepository talhaoRepository) {
+  public SafraService(
+      SafraRepository safraRepository,
+      TalhaoRepository talhaoRepository,
+      UsuarioRepository usuarioRepository) {
     this.safraRepository = safraRepository;
     this.talhaoRepository = talhaoRepository;
+    this.usuarioRepository = usuarioRepository;
   }
 
   @Transactional(readOnly = true)
   public List<SafraResponseDto> listar() {
-    return safraRepository.findAll().stream().map(this::toResponse).toList();
+    return safraRepository.findByExcluidoFalse().stream().map(this::toResponse).toList();
   }
 
   @Transactional(readOnly = true)
   public SafraResponseDto buscar(Long id) {
-    return safraRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
+    return safraRepository
+        .findByIdAndExcluidoFalse(id)
+        .map(this::toResponse)
+        .orElseThrow(this::notFound);
   }
 
   @Transactional
@@ -41,7 +53,7 @@ public class SafraService {
 
   @Transactional
   public SafraResponseDto atualizar(Long id, SafraRequestDto dto) {
-    Safra s = safraRepository.findById(id).orElseThrow(this::notFound);
+    Safra s = safraRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
     s.setTalhao(resolveTalhao(dto.talhaoId()));
     apply(s, dto);
     return toResponse(safraRepository.save(s));
@@ -55,11 +67,18 @@ public class SafraService {
   }
 
   @Transactional
-  public void excluir(Long id) {
-    if (!safraRepository.existsById(id)) {
-      throw notFound();
-    }
-    safraRepository.deleteById(id);
+  public void excluir(Long id, SafraExclusaoRequestDto dto, Long usuarioId) {
+    Safra s = safraRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
+    Usuario u =
+        usuarioRepository
+            .findById(usuarioId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário inválido"));
+    s.setExcluido(true);
+    s.setExcluidoPor(u);
+    s.setJustificativaExclusao(dto.justificativa().trim());
+    s.setExcluidoEm(LocalDateTime.now());
+    safraRepository.save(s);
   }
 
   private void apply(Safra s, SafraRequestDto dto) {

@@ -1,6 +1,7 @@
 package com.safracerta.modules.safra;
 
 import com.safracerta.modules.talhao.Talhao;
+import com.safracerta.modules.user.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "safra")
@@ -51,6 +53,19 @@ public class Safra {
 
   @Column(name = "producao_real", precision = 14, scale = 4)
   private BigDecimal producaoReal;
+
+  @Column(nullable = false)
+  private boolean excluido = false;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "excluido_por_id")
+  private Usuario excluidoPor;
+
+  @Column(name = "justificativa_exclusao", length = 500)
+  private String justificativaExclusao;
+
+  @Column(name = "excluido_em")
+  private LocalDateTime excluidoEm;
 
   public Long getId() {
     return id;
@@ -130,5 +145,37 @@ public class Safra {
 
   public void setProducaoReal(BigDecimal producaoReal) {
     this.producaoReal = producaoReal;
+  }
+
+  public boolean isExcluido() {
+    return excluido;
+  }
+
+  public void setExcluido(boolean excluido) {
+    this.excluido = excluido;
+  }
+
+  public Usuario getExcluidoPor() {
+    return excluidoPor;
+  }
+
+  public void setExcluidoPor(Usuario excluidoPor) {
+    this.excluidoPor = excluidoPor;
+  }
+
+  public String getJustificativaExclusao() {
+    return justificativaExclusao;
+  }
+
+  public void setJustificativaExclusao(String justificativaExclusao) {
+    this.justificativaExclusao = justificativaExclusao;
+  }
+
+  public LocalDateTime getExcluidoEm() {
+    return excluidoEm;
+  }
+
+  public void setExcluidoEm(LocalDateTime excluidoEm) {
+    this.excluidoEm = excluidoEm;
   }
 }
