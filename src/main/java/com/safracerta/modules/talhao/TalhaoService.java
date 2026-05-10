@@ -66,9 +66,11 @@ public class TalhaoService {
   }
 
   private TalhaoResponseDto toResponse(Talhao t) {
+    Fazenda f = t.getFazenda();
     return new TalhaoResponseDto(
         t.getId(),
-        t.getFazenda().getId(),
+        f != null ? f.getId() : null,
+        f != null ? f.getNome() : null,
         t.getNome(),
         t.getAreaHectares(),
         t.getTipoCultivo());

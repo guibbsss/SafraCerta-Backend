@@ -30,6 +30,11 @@ public class AtividadeAgricolaController {
     return atividadeAgricolaService.listar();
   }
 
+  @GetMapping("/talhao/{talhaoId}")
+  public List<AtividadeAgricolaResponseDto> listarPorTalhao(@PathVariable Long talhaoId) {
+    return atividadeAgricolaService.listarPorTalhao(talhaoId);
+  }
+
   @GetMapping("/{id}")
   public AtividadeAgricolaResponseDto buscar(@PathVariable Long id) {
     return atividadeAgricolaService.buscar(id);

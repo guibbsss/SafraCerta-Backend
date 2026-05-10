@@ -29,6 +29,13 @@ public class AtividadeAgricolaService {
   }
 
   @Transactional(readOnly = true)
+  public List<AtividadeAgricolaResponseDto> listarPorTalhao(Long talhaoId) {
+    return atividadeRepository.findByTalhao_IdOrderByDataAtividadeDesc(talhaoId).stream()
+        .map(this::toResponse)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
   public AtividadeAgricolaResponseDto buscar(Long id) {
     return atividadeRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
   }
@@ -68,9 +75,11 @@ public class AtividadeAgricolaService {
   }
 
   private AtividadeAgricolaResponseDto toResponse(AtividadeAgricola a) {
+    Talhao t = a.getTalhao();
     return new AtividadeAgricolaResponseDto(
         a.getId(),
-        a.getTalhao().getId(),
+        t != null ? t.getId() : null,
+        t != null ? t.getNome() : null,
         a.getTipoOperacao(),
         a.getDataAtividade(),
         a.getDescricao());
