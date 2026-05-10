@@ -9,4 +9,5 @@ public record InsumoRequestDto(
     @NotBlank String nome,
     String categoria,
     @NotNull BigDecimal quantidadeAtual,
-    @NotBlank String unidadeMedida) {}
+    @NotBlank String unidadeMedida,
+    BigDecimal valorUnitarioReferencia) {}

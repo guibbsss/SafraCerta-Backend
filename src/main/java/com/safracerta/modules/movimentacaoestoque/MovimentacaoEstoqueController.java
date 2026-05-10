@@ -30,6 +30,12 @@ public class MovimentacaoEstoqueController {
     return movimentacaoEstoqueService.listar();
   }
 
+  @GetMapping("/tipo/{tipo}")
+  public List<MovimentacaoEstoqueResponseDto> listarPorTipo(
+      @PathVariable TipoMovimentacaoEstoque tipo) {
+    return movimentacaoEstoqueService.listarPorTipo(tipo);
+  }
+
   @GetMapping("/{id}")
   public MovimentacaoEstoqueResponseDto buscar(@PathVariable Long id) {
     return movimentacaoEstoqueService.buscar(id);

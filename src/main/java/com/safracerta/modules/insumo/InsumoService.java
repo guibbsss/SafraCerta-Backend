@@ -4,6 +4,7 @@ import com.safracerta.modules.fazenda.Fazenda;
 import com.safracerta.modules.fazenda.FazendaRepository;
 import com.safracerta.modules.insumo.dto.InsumoRequestDto;
 import com.safracerta.modules.insumo.dto.InsumoResponseDto;
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,14 @@ public class InsumoService {
 
   @Transactional(readOnly = true)
   public List<InsumoResponseDto> listar() {
-    return insumoRepository.findAll().stream().map(this::toResponse).toList();
+    return insumoRepository.findAllWithFazenda().stream().map(this::toResponse).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<InsumoResponseDto> listarPorFazenda(Long fazendaId) {
+    return insumoRepository.findByFazenda_IdOrderByNomeAsc(fazendaId).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -64,16 +72,30 @@ public class InsumoService {
     i.setCategoria(dto.categoria());
     i.setQuantidadeAtual(dto.quantidadeAtual());
     i.setUnidadeMedida(dto.unidadeMedida());
+    if (dto.valorUnitarioReferencia() != null) {
+      i.setValorUnitarioReferencia(dto.valorUnitarioReferencia());
+    }
   }
 
   private InsumoResponseDto toResponse(Insumo i) {
+    BigDecimal valorTotalEstimado = calcularValorTotalEstimado(i);
     return new InsumoResponseDto(
         i.getId(),
         i.getFazenda().getId(),
+        i.getFazenda().getNome(),
         i.getNome(),
         i.getCategoria(),
         i.getQuantidadeAtual(),
-        i.getUnidadeMedida());
+        i.getUnidadeMedida(),
+        i.getValorUnitarioReferencia(),
+        valorTotalEstimado);
+  }
+
+  private static BigDecimal calcularValorTotalEstimado(Insumo i) {
+    if (i.getValorUnitarioReferencia() == null || i.getQuantidadeAtual() == null) {
+      return null;
+    }
+    return i.getQuantidadeAtual().multiply(i.getValorUnitarioReferencia());
   }
 
   private ResponseStatusException notFound() {

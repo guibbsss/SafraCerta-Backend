@@ -5,7 +5,10 @@ import java.math.BigDecimal;
 public record InsumoResponseDto(
     Long id,
     Long fazendaId,
+    String fazendaNome,
     String nome,
     String categoria,
     BigDecimal quantidadeAtual,
-    String unidadeMedida) {}
+    String unidadeMedida,
+    BigDecimal valorUnitarioReferencia,
+    BigDecimal valorTotalEstimado) {}

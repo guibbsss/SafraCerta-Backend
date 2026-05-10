@@ -34,11 +34,17 @@ public class MovimentacaoEstoque {
   @Column(nullable = false, precision = 18, scale = 4)
   private BigDecimal quantidade;
 
+  @Column(name = "valor_unitario", precision = 18, scale = 4)
+  private BigDecimal valorUnitario;
+
   @Column(name = "data_movimentacao", nullable = false)
   private LocalDateTime dataMovimentacao;
 
   @Column(length = 500)
   private String observacao;
+
+  @Column(length = 200)
+  private String fornecedor;
 
   public Long getId() {
     return id;
@@ -86,5 +92,21 @@ public class MovimentacaoEstoque {
 
   public void setObservacao(String observacao) {
     this.observacao = observacao;
+  }
+
+  public BigDecimal getValorUnitario() {
+    return valorUnitario;
+  }
+
+  public void setValorUnitario(BigDecimal valorUnitario) {
+    this.valorUnitario = valorUnitario;
+  }
+
+  public String getFornecedor() {
+    return fornecedor;
+  }
+
+  public void setFornecedor(String fornecedor) {
+    this.fornecedor = fornecedor;
   }
 }

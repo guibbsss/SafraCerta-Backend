@@ -30,6 +30,11 @@ public class InsumoController {
     return insumoService.listar();
   }
 
+  @GetMapping("/fazenda/{fazendaId}")
+  public List<InsumoResponseDto> listarPorFazenda(@PathVariable Long fazendaId) {
+    return insumoService.listarPorFazenda(fazendaId);
+  }
+
   @GetMapping("/{id}")
   public InsumoResponseDto buscar(@PathVariable Long id) {
     return insumoService.buscar(id);

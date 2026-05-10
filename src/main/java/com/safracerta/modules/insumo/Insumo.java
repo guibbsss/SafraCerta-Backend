@@ -36,6 +36,9 @@ public class Insumo {
   @Column(name = "unidade_medida", nullable = false, length = 50)
   private String unidadeMedida;
 
+  @Column(name = "valor_unitario_referencia", precision = 18, scale = 4)
+  private BigDecimal valorUnitarioReferencia;
+
   public Long getId() {
     return id;
   }
@@ -82,5 +85,13 @@ public class Insumo {
 
   public void setUnidadeMedida(String unidadeMedida) {
     this.unidadeMedida = unidadeMedida;
+  }
+
+  public BigDecimal getValorUnitarioReferencia() {
+    return valorUnitarioReferencia;
+  }
+
+  public void setValorUnitarioReferencia(BigDecimal valorUnitarioReferencia) {
+    this.valorUnitarioReferencia = valorUnitarioReferencia;
   }
 }

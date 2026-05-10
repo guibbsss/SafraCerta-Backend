@@ -26,19 +26,29 @@ public class MovimentacaoEstoqueService {
 
   @Transactional(readOnly = true)
   public List<MovimentacaoEstoqueResponseDto> listar() {
-    return movimentacaoRepository.findAll().stream().map(this::toResponse).toList();
+    return movimentacaoRepository.findAllWithDetails().stream().map(this::toResponse).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<MovimentacaoEstoqueResponseDto> listarPorTipo(TipoMovimentacaoEstoque tipo) {
+    return movimentacaoRepository.findByTipoWithDetails(tipo).stream().map(this::toResponse).toList();
   }
 
   @Transactional(readOnly = true)
   public MovimentacaoEstoqueResponseDto buscar(Long id) {
-    return movimentacaoRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
+    return movimentacaoRepository
+        .findByIdWithDetails(id)
+        .map(this::toResponse)
+        .orElseThrow(this::notFound);
   }
 
   @Transactional
   public MovimentacaoEstoqueResponseDto criar(MovimentacaoEstoqueRequestDto dto) {
     Insumo insumo =
         insumoRepository.findById(dto.insumoId()).orElseThrow(this::insumoNotFound);
+    validarFazendaSeInformada(dto, insumo);
     aplicarNoEstoque(insumo, dto.tipoMovimentacao(), dto.quantidade());
+    atualizarReferenciaPrecoSeEntrada(insumo, dto);
     insumoRepository.save(insumo);
     MovimentacaoEstoque m = new MovimentacaoEstoque();
     m.setInsumo(insumo);
@@ -55,12 +65,18 @@ public class MovimentacaoEstoqueService {
 
     Insumo insumoNovo =
         insumoRepository.findById(dto.insumoId()).orElseThrow(this::insumoNotFound);
+    validarFazendaSeInformada(dto, insumoNovo);
     aplicarNoEstoque(insumoNovo, dto.tipoMovimentacao(), dto.quantidade());
+    atualizarReferenciaPrecoSeEntrada(insumoNovo, dto);
     insumoRepository.save(insumoNovo);
 
     m.setInsumo(insumoNovo);
     apply(m, dto);
-    return toResponse(movimentacaoRepository.save(m));
+    MovimentacaoEstoque salvo = movimentacaoRepository.save(m);
+    return movimentacaoRepository
+        .findByIdWithDetails(salvo.getId())
+        .map(this::toResponse)
+        .orElseThrow(this::notFound);
   }
 
   @Transactional
@@ -72,11 +88,28 @@ public class MovimentacaoEstoqueService {
     movimentacaoRepository.delete(m);
   }
 
+  private void validarFazendaSeInformada(MovimentacaoEstoqueRequestDto dto, Insumo insumo) {
+    if (dto.fazendaId() != null
+        && !dto.fazendaId().equals(insumo.getFazenda().getId())) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Insumo não pertence à fazenda selecionada");
+    }
+  }
+
+  private void atualizarReferenciaPrecoSeEntrada(Insumo insumo, MovimentacaoEstoqueRequestDto dto) {
+    if (dto.tipoMovimentacao() == TipoMovimentacaoEstoque.ENTRADA
+        && dto.valorUnitario() != null) {
+      insumo.setValorUnitarioReferencia(dto.valorUnitario());
+    }
+  }
+
   private void apply(MovimentacaoEstoque m, MovimentacaoEstoqueRequestDto dto) {
     m.setTipoMovimentacao(dto.tipoMovimentacao());
     m.setQuantidade(dto.quantidade());
     m.setDataMovimentacao(dto.dataMovimentacao());
     m.setObservacao(dto.observacao());
+    m.setValorUnitario(dto.valorUnitario());
+    m.setFornecedor(dto.fornecedor());
   }
 
   private void aplicarNoEstoque(
@@ -104,13 +137,25 @@ public class MovimentacaoEstoqueService {
   }
 
   private MovimentacaoEstoqueResponseDto toResponse(MovimentacaoEstoque m) {
+    Insumo ins = m.getInsumo();
+    BigDecimal valorTotal =
+        m.getValorUnitario() != null
+            ? m.getQuantidade().multiply(m.getValorUnitario())
+            : null;
     return new MovimentacaoEstoqueResponseDto(
         m.getId(),
-        m.getInsumo().getId(),
+        ins.getId(),
+        ins.getNome(),
+        ins.getFazenda().getId(),
+        ins.getFazenda().getNome(),
+        ins.getCategoria(),
         m.getTipoMovimentacao(),
         m.getQuantidade(),
+        m.getValorUnitario(),
+        valorTotal,
         m.getDataMovimentacao(),
-        m.getObservacao());
+        m.getObservacao(),
+        m.getFornecedor());
   }
 
   private ResponseStatusException notFound() {
