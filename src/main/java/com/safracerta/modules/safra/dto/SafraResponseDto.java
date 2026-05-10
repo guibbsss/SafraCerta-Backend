@@ -3,6 +3,7 @@ package com.safracerta.modules.safra.dto;
 import com.safracerta.modules.safra.SafraStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record SafraResponseDto(
     Long id,
@@ -15,4 +16,5 @@ public record SafraResponseDto(
     LocalDate dataColheitaPrevista,
     LocalDate dataColheitaReal,
     BigDecimal producaoEstimada,
-    BigDecimal producaoReal) {}
+    BigDecimal producaoReal,
+    List<SafraConsumoRespostaDto> consumosInsumo) {}

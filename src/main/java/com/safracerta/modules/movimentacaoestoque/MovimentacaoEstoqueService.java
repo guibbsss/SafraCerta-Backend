@@ -3,8 +3,10 @@ package com.safracerta.modules.movimentacaoestoque;
 import com.safracerta.modules.insumo.Insumo;
 import com.safracerta.modules.insumo.InsumoRepository;
 import com.safracerta.modules.movimentacaoestoque.dto.MovimentacaoEstoqueRequestDto;
+import com.safracerta.modules.safra.Safra;
 import com.safracerta.modules.movimentacaoestoque.dto.MovimentacaoEstoqueResponseDto;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,37 @@ public class MovimentacaoEstoqueService {
         .findByIdWithDetails(id)
         .map(this::toResponse)
         .orElseThrow(this::notFound);
+  }
+
+  /**
+   * Regista uma saída de estoque ligada a uma safra (persistida). Valida se o insumo pertence à
+   * fazenda indicada.
+   */
+  @Transactional
+  public void registrarSaidaParaSafra(
+      Long fazendaIdEsperada,
+      Long insumoId,
+      BigDecimal quantidade,
+      Safra safra,
+      LocalDateTime dataMovimentacao) {
+    Insumo insumo = insumoRepository.findById(insumoId).orElseThrow(this::insumoNotFound);
+    if (!insumo.getFazenda().getId().equals(fazendaIdEsperada)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Insumo não pertence à fazenda do talhão selecionado");
+    }
+    aplicarNoEstoque(insumo, TipoMovimentacaoEstoque.SAIDA, quantidade);
+    insumoRepository.save(insumo);
+    MovimentacaoEstoque m = new MovimentacaoEstoque();
+    m.setInsumo(insumo);
+    m.setSafra(safra);
+    m.setTipoMovimentacao(TipoMovimentacaoEstoque.SAIDA);
+    m.setQuantidade(quantidade);
+    m.setDataMovimentacao(dataMovimentacao);
+    m.setObservacao("Consumo na safra #" + safra.getId());
+    if (insumo.getValorUnitarioReferencia() != null) {
+      m.setValorUnitario(insumo.getValorUnitarioReferencia());
+    }
+    movimentacaoRepository.save(m);
   }
 
   @Transactional

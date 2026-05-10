@@ -36,4 +36,14 @@ public interface MovimentacaoEstoqueRepository extends JpaRepository<Movimentaca
       WHERE m.id = :id
       """)
   Optional<MovimentacaoEstoque> findByIdWithDetails(@Param("id") Long id);
+
+  @Query(
+      """
+      SELECT DISTINCT m FROM MovimentacaoEstoque m
+      JOIN FETCH m.insumo i
+      JOIN FETCH i.fazenda
+      WHERE m.safra.id = :safraId
+      ORDER BY m.id ASC
+      """)
+  List<MovimentacaoEstoque> findBySafra_IdOrderByIdAsc(@Param("safraId") Long safraId);
 }

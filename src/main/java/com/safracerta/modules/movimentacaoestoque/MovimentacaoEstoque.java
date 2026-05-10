@@ -1,6 +1,7 @@
 package com.safracerta.modules.movimentacaoestoque;
 
 import com.safracerta.modules.insumo.Insumo;
+import com.safracerta.modules.safra.Safra;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +27,10 @@ public class MovimentacaoEstoque {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "insumo_id", nullable = false)
   private Insumo insumo;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "safra_id")
+  private Safra safra;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "tipo_movimentacao", nullable = false, length = 20)
@@ -60,6 +65,14 @@ public class MovimentacaoEstoque {
 
   public void setInsumo(Insumo insumo) {
     this.insumo = insumo;
+  }
+
+  public Safra getSafra() {
+    return safra;
+  }
+
+  public void setSafra(Safra safra) {
+    this.safra = safra;
   }
 
   public TipoMovimentacaoEstoque getTipoMovimentacao() {
