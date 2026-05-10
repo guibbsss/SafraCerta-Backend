@@ -1,10 +1,15 @@
 package com.safracerta.modules.transacaofinanceira;
 
+import com.safracerta.modules.transacaofinanceira.dto.TransacaoFinanceiraExclusaoRequestDto;
 import com.safracerta.modules.transacaofinanceira.dto.TransacaoFinanceiraRequestDto;
 import com.safracerta.modules.transacaofinanceira.dto.TransacaoFinanceiraResponseDto;
+import com.safracerta.modules.transacaofinanceira.dto.TransacaoFinanceiraResumoDto;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,45 +17,77 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/transacoes-financeiras")
 public class TransacaoFinanceiraController {
 
-  private final TransacaoFinanceiraService transacaoFinanceiraService;
+  private final TransacaoFinanceiraService service;
 
-  public TransacaoFinanceiraController(TransacaoFinanceiraService transacaoFinanceiraService) {
-    this.transacaoFinanceiraService = transacaoFinanceiraService;
+  public TransacaoFinanceiraController(TransacaoFinanceiraService service) {
+    this.service = service;
   }
 
   @GetMapping
-  public List<TransacaoFinanceiraResponseDto> listar() {
-    return transacaoFinanceiraService.listar();
+  public List<TransacaoFinanceiraResponseDto> listar(
+      @RequestParam(required = false) Long fazendaId,
+      @RequestParam(required = false) TipoTransacaoFinanceira tipo,
+      @RequestParam(required = false) StatusTransacaoFinanceira status,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate dataInicio,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate dataFim) {
+    return service.listar(fazendaId, tipo, status, dataInicio, dataFim);
   }
 
-  @GetMapping("/{id}")
+  @GetMapping("/resumo")
+  public TransacaoFinanceiraResumoDto resumo(
+      @RequestParam(required = false) Long fazendaId,
+      @RequestParam(required = false) TipoTransacaoFinanceira tipo,
+      @RequestParam(required = false) StatusTransacaoFinanceira status,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate dataInicio,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate dataFim) {
+    return service.resumo(fazendaId, tipo, status, dataInicio, dataFim);
+  }
+
+  /**
+   * Usa padrão numérico em {id} para nunca conflitar com rotas literais como {@code /resumo}
+   * (Spring pode mapear "resumo" para {@code /{id}} e gerar 400).
+   */
+  @GetMapping("/{id:\\d+}")
   public TransacaoFinanceiraResponseDto buscar(@PathVariable Long id) {
-    return transacaoFinanceiraService.buscar(id);
+    return service.buscar(id);
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public TransacaoFinanceiraResponseDto criar(
       @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
-    return transacaoFinanceiraService.criar(body);
+    return service.criar(body);
   }
 
-  @PutMapping("/{id}")
+  @PutMapping("/{id:\\d+}")
   public TransacaoFinanceiraResponseDto atualizar(
       @PathVariable Long id, @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
-    return transacaoFinanceiraService.atualizar(id, body);
+    return service.atualizar(id, body);
   }
 
-  @DeleteMapping("/{id}")
+  @DeleteMapping("/{id:\\d+}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void excluir(@PathVariable Long id) {
-    transacaoFinanceiraService.excluir(id);
+  public void excluir(
+      @PathVariable Long id,
+      @Valid @RequestBody TransacaoFinanceiraExclusaoRequestDto body,
+      Authentication auth) {
+    if (auth == null || auth.getPrincipal() == null) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória");
+    }
+    Long usuarioId = (Long) auth.getPrincipal();
+    service.excluir(id, body, usuarioId);
   }
 }
