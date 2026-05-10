@@ -1,8 +1,11 @@
 package com.safracerta.config;
 
 import com.safracerta.config.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,7 +38,9 @@ public class SecurityConfig {
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers(
                         "/auth/**",
                         "/health",
                         "/v3/api-docs/**",
@@ -44,6 +49,26 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .authenticated())
+        .exceptionHandling(
+            ex ->
+                ex.authenticationEntryPoint(
+                        (request, response, authException) -> {
+                          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          response
+                              .getWriter()
+                              .write(
+                                  "{\"error\":\"unauthorized\",\"message\":\"Token ausente ou invalido\"}");
+                        })
+                    .accessDeniedHandler(
+                        (request, response, accessDeniedException) -> {
+                          response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          response
+                              .getWriter()
+                              .write(
+                                  "{\"error\":\"forbidden\",\"message\":\"Sem permissao para o recurso\"}");
+                        }))
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
     return http.build();
   }

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 public record SafraRequestDto(
     @NotBlank String nome,
-    Long talhaoId,
+    @NotNull Long talhaoId,
     @NotBlank String cultura,
     @NotNull SafraStatus status,
     @NotNull LocalDate dataPlantio,

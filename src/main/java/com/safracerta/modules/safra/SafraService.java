@@ -61,7 +61,7 @@ public class SafraService {
 
   private Talhao resolveTalhao(Long talhaoId) {
     if (talhaoId == null) {
-      return null;
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Talhão é obrigatório");
     }
     return talhaoRepository.findById(talhaoId).orElseThrow(this::talhaoNotFound);
   }

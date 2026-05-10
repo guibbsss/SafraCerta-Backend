@@ -26,7 +26,7 @@ public class Safra {
   private Long id;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "talhao_id")
+  @JoinColumn(name = "talhao_id", nullable = false)
   private Talhao talhao;
 
   @Column(nullable = false, length = 160)
