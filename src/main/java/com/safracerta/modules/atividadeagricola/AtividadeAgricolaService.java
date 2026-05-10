@@ -25,7 +25,9 @@ public class AtividadeAgricolaService {
 
   @Transactional(readOnly = true)
   public List<AtividadeAgricolaResponseDto> listar() {
-    return atividadeRepository.findAll().stream().map(this::toResponse).toList();
+    return atividadeRepository.findAllByOrderByDataAtividadeDesc().stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -37,7 +39,7 @@ public class AtividadeAgricolaService {
 
   @Transactional(readOnly = true)
   public AtividadeAgricolaResponseDto buscar(Long id) {
-    return atividadeRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
+    return atividadeRepository.findWithTalhaoById(id).map(this::toResponse).orElseThrow(this::notFound);
   }
 
   @Transactional
