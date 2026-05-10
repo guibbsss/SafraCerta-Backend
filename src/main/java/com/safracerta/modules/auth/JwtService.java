@@ -47,7 +47,25 @@ public class JwtService {
         .compact();
   }
 
+  /**
+   * Valida assinatura e expiração do JWT (uso típico em filtros de API).
+   */
   public Claims parse(String token) {
     return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
+  }
+
+  /**
+   * Valida assinatura mas não rejeita token expirado. Use quando precisar ler claims
+   * (ex.: identificar utilizador) sem bloquear por {@code exp} — por exemplo, ao comparar
+   * com o token persistido em {@code usuario.autenticacao} depois de expirado, sem impedir
+   * operações que não devem depender só da validade do JWT.
+   */
+  public Claims parseIgnoringExpiration(String token) {
+    return Jwts.parser()
+        .verifyWith(signingKey)
+        .clock(() -> new Date(Long.MAX_VALUE))
+        .build()
+        .parseSignedClaims(token)
+        .getPayload();
   }
 }

@@ -2,6 +2,10 @@ package com.safracerta.modules.perfil;
 
 import com.safracerta.modules.perfil.dto.PerfilRequestDto;
 import com.safracerta.modules.perfil.dto.PerfilResponseDto;
+import com.safracerta.modules.permissao.PermissaoMatrizService;
+import com.safracerta.modules.permissao.dto.MatrizCategoriaDto;
+import com.safracerta.modules.permissao.dto.PermissaoToggleRequestDto;
+import com.safracerta.modules.permissao.dto.PerfilPermissaoResumoDto;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -20,14 +24,36 @@ import org.springframework.web.bind.annotation.RestController;
 public class PerfilController {
 
   private final PerfilService perfilService;
+  private final PermissaoMatrizService permissaoMatrizService;
 
-  public PerfilController(PerfilService perfilService) {
+  public PerfilController(
+      PerfilService perfilService, PermissaoMatrizService permissaoMatrizService) {
     this.perfilService = perfilService;
+    this.permissaoMatrizService = permissaoMatrizService;
   }
 
   @GetMapping
   public List<PerfilResponseDto> listar() {
     return perfilService.listar();
+  }
+
+  @GetMapping("/resumo-com-permissoes")
+  public List<PerfilPermissaoResumoDto> resumoComPermissoes() {
+    return permissaoMatrizService.resumoPerfisComPermissoesAtivas();
+  }
+
+  @GetMapping("/{id}/matriz-permissoes")
+  public List<MatrizCategoriaDto> matrizPermissoes(@PathVariable Long id) {
+    return permissaoMatrizService.matrizPorPerfil(id);
+  }
+
+  @PutMapping("/{id}/permissoes/{permissaoId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void definirPermissao(
+      @PathVariable Long id,
+      @PathVariable Long permissaoId,
+      @Valid @RequestBody PermissaoToggleRequestDto body) {
+    permissaoMatrizService.definirPermissao(id, permissaoId, body);
   }
 
   @GetMapping("/{id}")

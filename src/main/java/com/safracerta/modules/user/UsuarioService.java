@@ -49,6 +49,13 @@ public class UsuarioService {
     return toResponse(usuarioRepository.save(u));
   }
 
+  /**
+   * Atualiza dados cadastrais. O JWT armazenado em {@code usuario.autenticacao} não é alterado
+   * aqui. Se no futuro validar o {@code Authorization} neste fluxo, não use apenas validação de
+   * expiração do JWT ({@code JwtService#parse}) como critério único — tokens expirados ainda podem
+   * precisar ser aceites para não bloquear atualizações (ex.: {@code JwtService#parseIgnoringExpiration}
+   * ou comparação com o token persistido).
+   */
   @Transactional
   public UsuarioResponseDto atualizar(Long id, UsuarioRequestDto dto) {
     Usuario u = usuarioRepository.findById(id).orElseThrow(this::notFound);

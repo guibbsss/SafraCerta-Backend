@@ -1,4 +1,4 @@
-package com.safracerta.modules.perfil;
+package com.safracerta.modules.permissao;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,15 +8,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "perfil")
-public class Perfil {
+@Table(name = "permissao_categoria")
+public class PermissaoCategoria {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(nullable = false, length = 100)
+  @Column(nullable = false, length = 150)
   private String nome;
+
+  @Column(length = 500)
+  private String descricao;
 
   @Column(nullable = false)
   private boolean ativo = true;
@@ -38,6 +41,14 @@ public class Perfil {
 
   public void setNome(String nome) {
     this.nome = nome;
+  }
+
+  public String getDescricao() {
+    return descricao;
+  }
+
+  public void setDescricao(String descricao) {
+    this.descricao = descricao;
   }
 
   public boolean isAtivo() {
