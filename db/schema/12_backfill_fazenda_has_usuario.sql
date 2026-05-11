@@ -1,7 +1,6 @@
 USE safracerta;
 
--- Popular vínculos para fazendas já existentes (usa coluna proprietario como usuário vinculado).
--- Execute depois de criar `fazenda_has_usuario` e apenas onde ainda não existir o par.
+
 
 INSERT INTO fazenda_has_usuario (fazenda_id, usuario_id)
 SELECT f.id, f.proprietario

@@ -1,8 +1,6 @@
 USE safracerta;
 
--- Adiciona campos extras para alinhar com o formulário de Nova Safra do frontend.
--- O DEFAULT '' em `nome` existe apenas para permitir aplicar a alteração em
--- bases já populadas; a entidade JPA exige valor não-nulo nos novos cadastros.
+
 
 ALTER TABLE safra
   ADD COLUMN nome VARCHAR(160) NOT NULL DEFAULT '' AFTER talhao_id,

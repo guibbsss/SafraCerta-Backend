@@ -1,6 +1,5 @@
 USE safracerta;
 
--- Vínculo N:N entre fazenda e usuário (vários usuários podem estar associados à mesma fazenda).
 CREATE TABLE fazenda_has_usuario (
   fazenda_id BIGINT NOT NULL,
   usuario_id BIGINT NOT NULL,

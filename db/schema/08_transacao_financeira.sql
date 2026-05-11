@@ -1,6 +1,5 @@
 USE safracerta;
 
--- tipo: valores usados pelo Java (EnumType.STRING): RECEITA | DESPESA
 CREATE TABLE transacao_financeira (
   id BIGINT NOT NULL AUTO_INCREMENT,
   fazenda_id BIGINT NOT NULL,

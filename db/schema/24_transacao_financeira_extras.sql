@@ -1,9 +1,6 @@
 USE safracerta;
 
--- Expansão da tabela transacao_financeira para suportar o módulo Financeiro completo:
---   * descrição livre, forma de pagamento, status, datas de vencimento/pagamento, observações
---   * vínculo opcional com safra (rastrear venda de produção / custos por safra)
---   * soft delete + auditoria de exclusão (mesmo padrão de safra)
+
 
 ALTER TABLE transacao_financeira
   ADD COLUMN descricao VARCHAR(500) NULL AFTER valor,

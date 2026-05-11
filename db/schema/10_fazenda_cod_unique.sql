@@ -1,5 +1,3 @@
--- Execute após criar a coluna cod_fazenda (03_fazenda.sql).
--- Garante unicidade do código de acesso no banco.
 
 USE safracerta;
 

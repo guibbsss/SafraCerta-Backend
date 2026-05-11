@@ -1,8 +1,6 @@
 USE safracerta;
 
--- Soft delete + auditoria de exclusão de safra.
--- A safra deixa de ser removida fisicamente; passamos a marcar `excluido = 1`
--- guardando QUEM excluiu, QUANDO e o motivo (justificativa obrigatória no front).
+
 
 ALTER TABLE safra
   ADD COLUMN excluido TINYINT(1) NOT NULL DEFAULT 0,
