@@ -34,6 +34,7 @@ public class TransacaoFinanceiraController {
 
   @GetMapping
   public List<TransacaoFinanceiraResponseDto> listar(
+      Authentication auth,
       @RequestParam(required = false) Long fazendaId,
       @RequestParam(required = false) TipoTransacaoFinanceira tipo,
       @RequestParam(required = false) StatusTransacaoFinanceira status,
@@ -41,11 +42,13 @@ public class TransacaoFinanceiraController {
           LocalDate dataInicio,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate dataFim) {
-    return service.listar(fazendaId, tipo, status, dataInicio, dataFim);
+    return service.listar(
+        requireUsuarioId(auth), fazendaId, tipo, status, dataInicio, dataFim);
   }
 
   @GetMapping("/resumo")
   public TransacaoFinanceiraResumoDto resumo(
+      Authentication auth,
       @RequestParam(required = false) Long fazendaId,
       @RequestParam(required = false) TipoTransacaoFinanceira tipo,
       @RequestParam(required = false) StatusTransacaoFinanceira status,
@@ -53,7 +56,8 @@ public class TransacaoFinanceiraController {
           LocalDate dataInicio,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate dataFim) {
-    return service.resumo(fazendaId, tipo, status, dataInicio, dataFim);
+    return service.resumo(
+        requireUsuarioId(auth), fazendaId, tipo, status, dataInicio, dataFim);
   }
 
   /**
@@ -61,33 +65,38 @@ public class TransacaoFinanceiraController {
    * (Spring pode mapear "resumo" para {@code /{id}} e gerar 400).
    */
   @GetMapping("/{id:\\d+}")
-  public TransacaoFinanceiraResponseDto buscar(@PathVariable Long id) {
-    return service.buscar(id);
+  public TransacaoFinanceiraResponseDto buscar(Authentication auth, @PathVariable Long id) {
+    return service.buscar(id, requireUsuarioId(auth));
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public TransacaoFinanceiraResponseDto criar(
-      @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
-    return service.criar(body);
+      Authentication auth, @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
+    return service.criar(requireUsuarioId(auth), body);
   }
 
   @PutMapping("/{id:\\d+}")
   public TransacaoFinanceiraResponseDto atualizar(
-      @PathVariable Long id, @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
-    return service.atualizar(id, body);
+      Authentication auth,
+      @PathVariable Long id,
+      @Valid @RequestBody TransacaoFinanceiraRequestDto body) {
+    return service.atualizar(requireUsuarioId(auth), id, body);
   }
 
   @DeleteMapping("/{id:\\d+}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void excluir(
+      Authentication auth,
       @PathVariable Long id,
-      @Valid @RequestBody TransacaoFinanceiraExclusaoRequestDto body,
-      Authentication auth) {
+      @Valid @RequestBody TransacaoFinanceiraExclusaoRequestDto body) {
+    service.excluir(id, body, requireUsuarioId(auth));
+  }
+
+  private static Long requireUsuarioId(Authentication auth) {
     if (auth == null || auth.getPrincipal() == null) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória");
     }
-    Long usuarioId = (Long) auth.getPrincipal();
-    service.excluir(id, body, usuarioId);
+    return (Long) auth.getPrincipal();
   }
 }

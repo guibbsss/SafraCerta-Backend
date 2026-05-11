@@ -2,6 +2,7 @@ package com.safracerta.modules.insumo;
 
 import com.safracerta.modules.fazenda.Fazenda;
 import com.safracerta.modules.fazenda.FazendaRepository;
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.insumo.dto.InsumoRequestDto;
 import com.safracerta.modules.insumo.dto.InsumoResponseDto;
 import java.math.BigDecimal;
@@ -16,33 +17,52 @@ public class InsumoService {
 
   private final InsumoRepository insumoRepository;
   private final FazendaRepository fazendaRepository;
+  private final FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
-  public InsumoService(InsumoRepository insumoRepository, FazendaRepository fazendaRepository) {
+  public InsumoService(
+      InsumoRepository insumoRepository,
+      FazendaRepository fazendaRepository,
+      FazendaUsuarioEscopoService fazendaUsuarioEscopoService) {
     this.insumoRepository = insumoRepository;
     this.fazendaRepository = fazendaRepository;
+    this.fazendaUsuarioEscopoService = fazendaUsuarioEscopoService;
   }
 
   @Transactional(readOnly = true)
-  public List<InsumoResponseDto> listar() {
-    return insumoRepository.findAllWithFazenda().stream().map(this::toResponse).toList();
+  public List<InsumoResponseDto> listar(Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
+    return insumoRepository.findByFazenda_IdInOrderByNomeAsc(fazendaIds).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
-  public List<InsumoResponseDto> listarPorFazenda(Long fazendaId) {
+  public List<InsumoResponseDto> listarPorFazenda(Long usuarioId, Long fazendaId) {
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazendaId);
     return insumoRepository.findByFazenda_IdOrderByNomeAsc(fazendaId).stream()
         .map(this::toResponse)
         .toList();
   }
 
   @Transactional(readOnly = true)
-  public InsumoResponseDto buscar(Long id) {
-    return insumoRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
+  public InsumoResponseDto buscar(Long id, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    return insumoRepository
+        .findByIdAndFazenda_IdIn(id, fazendaIds)
+        .map(this::toResponse)
+        .orElseThrow(this::notFound);
   }
 
   @Transactional
-  public InsumoResponseDto criar(InsumoRequestDto dto) {
-    Fazenda fazenda =
-        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
+  public InsumoResponseDto criar(Long usuarioId, InsumoRequestDto dto) {
+    Fazenda fazenda = resolveFazenda(dto.fazendaId());
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazenda.getId());
     Insumo i = new Insumo();
     i.setFazenda(fazenda);
     apply(i, dto);
@@ -50,21 +70,31 @@ public class InsumoService {
   }
 
   @Transactional
-  public InsumoResponseDto atualizar(Long id, InsumoRequestDto dto) {
-    Insumo i = insumoRepository.findById(id).orElseThrow(this::notFound);
-    Fazenda fazenda =
-        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
+  public InsumoResponseDto atualizar(Long usuarioId, Long id, InsumoRequestDto dto) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    Insumo i = insumoRepository.findByIdAndFazenda_IdIn(id, fazendaIds).orElseThrow(this::notFound);
+    Fazenda fazenda = resolveFazenda(dto.fazendaId());
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazenda.getId());
     i.setFazenda(fazenda);
     apply(i, dto);
     return toResponse(insumoRepository.save(i));
   }
 
   @Transactional
-  public void excluir(Long id) {
-    if (!insumoRepository.existsById(id)) {
+  public void excluir(Long usuarioId, Long id) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
       throw notFound();
     }
-    insumoRepository.deleteById(id);
+    Insumo i = insumoRepository.findByIdAndFazenda_IdIn(id, fazendaIds).orElseThrow(this::notFound);
+    insumoRepository.delete(i);
+  }
+
+  private Fazenda resolveFazenda(Long fazendaId) {
+    return fazendaRepository.findById(fazendaId).orElseThrow(this::fazendaNotFound);
   }
 
   private void apply(Insumo i, InsumoRequestDto dto) {

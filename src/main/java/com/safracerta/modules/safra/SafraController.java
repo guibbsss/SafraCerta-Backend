@@ -29,37 +29,40 @@ public class SafraController {
   }
 
   @GetMapping
-  public List<SafraResponseDto> listar() {
-    return safraService.listar();
+  public List<SafraResponseDto> listar(Authentication auth) {
+    return safraService.listar(requireUsuarioId(auth));
   }
 
   @GetMapping("/{id}")
-  public SafraResponseDto buscar(@PathVariable Long id) {
-    return safraService.buscar(id);
+  public SafraResponseDto buscar(Authentication auth, @PathVariable Long id) {
+    return safraService.buscar(id, requireUsuarioId(auth));
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public SafraResponseDto criar(@Valid @RequestBody SafraRequestDto body) {
-    return safraService.criar(body);
+  public SafraResponseDto criar(Authentication auth, @Valid @RequestBody SafraRequestDto body) {
+    return safraService.criar(requireUsuarioId(auth), body);
   }
 
   @PutMapping("/{id}")
   public SafraResponseDto atualizar(
-      @PathVariable Long id, @Valid @RequestBody SafraRequestDto body) {
-    return safraService.atualizar(id, body);
+      Authentication auth, @PathVariable Long id, @Valid @RequestBody SafraRequestDto body) {
+    return safraService.atualizar(id, requireUsuarioId(auth), body);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void excluir(
+      Authentication auth,
       @PathVariable Long id,
-      @Valid @RequestBody SafraExclusaoRequestDto body,
-      Authentication auth) {
+      @Valid @RequestBody SafraExclusaoRequestDto body) {
+    safraService.excluir(id, body, requireUsuarioId(auth));
+  }
+
+  private static Long requireUsuarioId(Authentication auth) {
     if (auth == null || auth.getPrincipal() == null) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória");
     }
-    Long usuarioId = (Long) auth.getPrincipal();
-    safraService.excluir(id, body, usuarioId);
+    return (Long) auth.getPrincipal();
   }
 }

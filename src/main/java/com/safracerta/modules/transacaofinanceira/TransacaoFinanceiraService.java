@@ -2,6 +2,7 @@ package com.safracerta.modules.transacaofinanceira;
 
 import com.safracerta.modules.fazenda.Fazenda;
 import com.safracerta.modules.fazenda.FazendaRepository;
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.safra.Safra;
 import com.safracerta.modules.safra.SafraRepository;
 import com.safracerta.modules.transacaofinanceira.dto.TransacaoFinanceiraExclusaoRequestDto;
@@ -26,50 +27,56 @@ public class TransacaoFinanceiraService {
   private final FazendaRepository fazendaRepository;
   private final SafraRepository safraRepository;
   private final UsuarioRepository usuarioRepository;
+  private final FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
   public TransacaoFinanceiraService(
       TransacaoFinanceiraRepository transacaoRepository,
       FazendaRepository fazendaRepository,
       SafraRepository safraRepository,
-      UsuarioRepository usuarioRepository) {
+      UsuarioRepository usuarioRepository,
+      FazendaUsuarioEscopoService fazendaUsuarioEscopoService) {
     this.transacaoRepository = transacaoRepository;
     this.fazendaRepository = fazendaRepository;
     this.safraRepository = safraRepository;
     this.usuarioRepository = usuarioRepository;
+    this.fazendaUsuarioEscopoService = fazendaUsuarioEscopoService;
   }
 
   @Transactional(readOnly = true)
   public List<TransacaoFinanceiraResponseDto> listar(
+      Long usuarioId,
       Long fazendaId,
       TipoTransacaoFinanceira tipo,
       StatusTransacaoFinanceira status,
       LocalDate dataInicio,
       LocalDate dataFim) {
-    return transacaoRepository.filtrar(fazendaId, tipo, status, dataInicio, dataFim).stream()
+    return lancamentosEscopados(usuarioId, fazendaId, tipo, status, dataInicio, dataFim).stream()
         .map(this::toResponse)
         .toList();
   }
 
   @Transactional(readOnly = true)
-  public TransacaoFinanceiraResponseDto buscar(Long id) {
+  public TransacaoFinanceiraResponseDto buscar(Long id, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
     return transacaoRepository
-        .findByIdAndExcluidoFalse(id)
+        .findByIdAndExcluidoFalseAndFazenda_IdIn(id, fazendaIds)
         .map(this::toResponse)
         .orElseThrow(this::notFound);
   }
 
   @Transactional(readOnly = true)
   public TransacaoFinanceiraResumoDto resumo(
+      Long usuarioId,
       Long fazendaId,
       TipoTransacaoFinanceira tipo,
       StatusTransacaoFinanceira status,
       LocalDate dataInicio,
       LocalDate dataFim) {
-    // Agregamos em memória para evitar gotchas com SUM(CASE WHEN ...) no JPQL/Hibernate.
-    // Volume previsto é o conjunto de lançamentos que aparecem na tela financeira da fazenda,
-    // então o custo é desprezível e o cálculo fica idêntico ao que o usuário vê na grade.
     List<TransacaoFinanceira> lancamentos =
-        transacaoRepository.filtrar(fazendaId, tipo, status, dataInicio, dataFim);
+        lancamentosEscopados(usuarioId, fazendaId, tipo, status, dataInicio, dataFim);
 
     BigDecimal totalReceitas = BigDecimal.ZERO;
     BigDecimal totalDespesas = BigDecimal.ZERO;
@@ -102,28 +109,45 @@ public class TransacaoFinanceiraService {
   }
 
   @Transactional
-  public TransacaoFinanceiraResponseDto criar(TransacaoFinanceiraRequestDto dto) {
+  public TransacaoFinanceiraResponseDto criar(Long usuarioId, TransacaoFinanceiraRequestDto dto) {
+    Fazenda fazenda = resolveFazenda(dto.fazendaId());
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazenda.getId());
     TransacaoFinanceira t = new TransacaoFinanceira();
-    t.setFazenda(resolveFazenda(dto.fazendaId()));
-    t.setSafra(resolveSafra(dto.safraId()));
+    t.setFazenda(fazenda);
+    t.setSafra(resolveSafra(dto.safraId(), fazenda.getId()));
     apply(t, dto);
     return toResponse(transacaoRepository.save(t));
   }
 
   @Transactional
-  public TransacaoFinanceiraResponseDto atualizar(Long id, TransacaoFinanceiraRequestDto dto) {
+  public TransacaoFinanceiraResponseDto atualizar(
+      Long usuarioId, Long id, TransacaoFinanceiraRequestDto dto) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
     TransacaoFinanceira t =
-        transacaoRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
-    t.setFazenda(resolveFazenda(dto.fazendaId()));
-    t.setSafra(resolveSafra(dto.safraId()));
+        transacaoRepository
+            .findByIdAndExcluidoFalseAndFazenda_IdIn(id, fazendaIds)
+            .orElseThrow(this::notFound);
+    Fazenda fazenda = resolveFazenda(dto.fazendaId());
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazenda.getId());
+    t.setFazenda(fazenda);
+    t.setSafra(resolveSafra(dto.safraId(), fazenda.getId()));
     apply(t, dto);
     return toResponse(transacaoRepository.save(t));
   }
 
   @Transactional
   public void excluir(Long id, TransacaoFinanceiraExclusaoRequestDto dto, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
     TransacaoFinanceira t =
-        transacaoRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
+        transacaoRepository
+            .findByIdAndExcluidoFalseAndFazenda_IdIn(id, fazendaIds)
+            .orElseThrow(this::notFound);
     Usuario u =
         usuarioRepository
             .findById(usuarioId)
@@ -136,6 +160,24 @@ public class TransacaoFinanceiraService {
     transacaoRepository.save(t);
   }
 
+  private List<TransacaoFinanceira> lancamentosEscopados(
+      Long usuarioId,
+      Long fazendaId,
+      TipoTransacaoFinanceira tipo,
+      StatusTransacaoFinanceira status,
+      LocalDate dataInicio,
+      LocalDate dataFim) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
+    if (fazendaId != null && !fazendaIds.contains(fazendaId)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem acesso a esta fazenda");
+    }
+    return transacaoRepository.filtrarPorFazendas(
+        fazendaIds, fazendaId, tipo, status, dataInicio, dataFim);
+  }
+
   private Fazenda resolveFazenda(Long fazendaId) {
     if (fazendaId == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fazenda é obrigatória");
@@ -143,11 +185,18 @@ public class TransacaoFinanceiraService {
     return fazendaRepository.findById(fazendaId).orElseThrow(this::fazendaNotFound);
   }
 
-  private Safra resolveSafra(Long safraId) {
+  private Safra resolveSafra(Long safraId, Long fazendaIdEsperada) {
     if (safraId == null) {
       return null;
     }
-    return safraRepository.findByIdAndExcluidoFalse(safraId).orElseThrow(this::safraNotFound);
+    Safra safra =
+        safraRepository.findByIdAndExcluidoFalse(safraId).orElseThrow(this::safraNotFound);
+    Long fazendaDaSafra = safra.getTalhao().getFazenda().getId();
+    if (!fazendaDaSafra.equals(fazendaIdEsperada)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Safra não pertence à fazenda indicada");
+    }
+    return safra;
   }
 
   private void apply(TransacaoFinanceira t, TransacaoFinanceiraRequestDto dto) {

@@ -1,10 +1,11 @@
 package com.safracerta.modules.movimentacaoestoque;
 
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.insumo.Insumo;
 import com.safracerta.modules.insumo.InsumoRepository;
 import com.safracerta.modules.movimentacaoestoque.dto.MovimentacaoEstoqueRequestDto;
-import com.safracerta.modules.safra.Safra;
 import com.safracerta.modules.movimentacaoestoque.dto.MovimentacaoEstoqueResponseDto;
+import com.safracerta.modules.safra.Safra;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,28 +19,48 @@ public class MovimentacaoEstoqueService {
 
   private final MovimentacaoEstoqueRepository movimentacaoRepository;
   private final InsumoRepository insumoRepository;
+  private final FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
   public MovimentacaoEstoqueService(
       MovimentacaoEstoqueRepository movimentacaoRepository,
-      InsumoRepository insumoRepository) {
+      InsumoRepository insumoRepository,
+      FazendaUsuarioEscopoService fazendaUsuarioEscopoService) {
     this.movimentacaoRepository = movimentacaoRepository;
     this.insumoRepository = insumoRepository;
+    this.fazendaUsuarioEscopoService = fazendaUsuarioEscopoService;
   }
 
   @Transactional(readOnly = true)
-  public List<MovimentacaoEstoqueResponseDto> listar() {
-    return movimentacaoRepository.findAllWithDetails().stream().map(this::toResponse).toList();
+  public List<MovimentacaoEstoqueResponseDto> listar(Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
+    return movimentacaoRepository.findAllWithDetailsForFazendas(fazendaIds).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
-  public List<MovimentacaoEstoqueResponseDto> listarPorTipo(TipoMovimentacaoEstoque tipo) {
-    return movimentacaoRepository.findByTipoWithDetails(tipo).stream().map(this::toResponse).toList();
+  public List<MovimentacaoEstoqueResponseDto> listarPorTipo(
+      Long usuarioId, TipoMovimentacaoEstoque tipo) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
+    return movimentacaoRepository.findByTipoWithDetailsForFazendas(tipo, fazendaIds).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
-  public MovimentacaoEstoqueResponseDto buscar(Long id) {
+  public MovimentacaoEstoqueResponseDto buscar(Long id, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
     return movimentacaoRepository
-        .findByIdWithDetails(id)
+        .findByIdWithDetailsForFazendas(id, fazendaIds)
         .map(this::toResponse)
         .orElseThrow(this::notFound);
   }
@@ -76,9 +97,11 @@ public class MovimentacaoEstoqueService {
   }
 
   @Transactional
-  public MovimentacaoEstoqueResponseDto criar(MovimentacaoEstoqueRequestDto dto) {
+  public MovimentacaoEstoqueResponseDto criar(Long usuarioId, MovimentacaoEstoqueRequestDto dto) {
     Insumo insumo =
         insumoRepository.findById(dto.insumoId()).orElseThrow(this::insumoNotFound);
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(
+        usuarioId, insumo.getFazenda().getId());
     validarFazendaSeInformada(dto, insumo);
     aplicarNoEstoque(insumo, dto.tipoMovimentacao(), dto.quantidade());
     atualizarReferenciaPrecoSeEntrada(insumo, dto);
@@ -90,14 +113,23 @@ public class MovimentacaoEstoqueService {
   }
 
   @Transactional
-  public MovimentacaoEstoqueResponseDto atualizar(Long id, MovimentacaoEstoqueRequestDto dto) {
-    MovimentacaoEstoque m = movimentacaoRepository.findById(id).orElseThrow(this::notFound);
+  public MovimentacaoEstoqueResponseDto atualizar(
+      Long id, Long usuarioId, MovimentacaoEstoqueRequestDto dto) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    MovimentacaoEstoque m =
+        movimentacaoRepository.findByIdWithDetailsForFazendas(id, fazendaIds).orElseThrow(this::notFound);
+
     Insumo insumoAnterior = m.getInsumo();
     reverterNoEstoque(insumoAnterior, m.getTipoMovimentacao(), m.getQuantidade());
     insumoRepository.save(insumoAnterior);
 
     Insumo insumoNovo =
         insumoRepository.findById(dto.insumoId()).orElseThrow(this::insumoNotFound);
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(
+        usuarioId, insumoNovo.getFazenda().getId());
     validarFazendaSeInformada(dto, insumoNovo);
     aplicarNoEstoque(insumoNovo, dto.tipoMovimentacao(), dto.quantidade());
     atualizarReferenciaPrecoSeEntrada(insumoNovo, dto);
@@ -107,14 +139,19 @@ public class MovimentacaoEstoqueService {
     apply(m, dto);
     MovimentacaoEstoque salvo = movimentacaoRepository.save(m);
     return movimentacaoRepository
-        .findByIdWithDetails(salvo.getId())
+        .findByIdWithDetailsForFazendas(salvo.getId(), fazendaIds)
         .map(this::toResponse)
         .orElseThrow(this::notFound);
   }
 
   @Transactional
-  public void excluir(Long id) {
-    MovimentacaoEstoque m = movimentacaoRepository.findById(id).orElseThrow(this::notFound);
+  public void excluir(Long id, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    MovimentacaoEstoque m =
+        movimentacaoRepository.findByIdWithDetailsForFazendas(id, fazendaIds).orElseThrow(this::notFound);
     Insumo insumo = m.getInsumo();
     reverterNoEstoque(insumo, m.getTipoMovimentacao(), m.getQuantidade());
     insumoRepository.save(insumo);

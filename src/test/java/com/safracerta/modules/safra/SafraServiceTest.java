@@ -3,10 +3,13 @@ package com.safracerta.modules.safra;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.safracerta.modules.fazenda.Fazenda;
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.movimentacaoestoque.MovimentacaoEstoqueRepository;
 import com.safracerta.modules.movimentacaoestoque.MovimentacaoEstoqueService;
 import com.safracerta.modules.safra.dto.SafraExclusaoRequestDto;
@@ -42,6 +45,7 @@ class SafraServiceTest {
   @Mock private UsuarioRepository usuarioRepository;
   @Mock private MovimentacaoEstoqueService movimentacaoEstoqueService;
   @Mock private MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+  @Mock private FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
   private SafraService service;
 
@@ -53,25 +57,39 @@ class SafraServiceTest {
             talhaoRepository,
             usuarioRepository,
             movimentacaoEstoqueService,
-            movimentacaoEstoqueRepository);
+            movimentacaoEstoqueRepository,
+            fazendaUsuarioEscopoService);
   }
 
   @Test
-  @DisplayName("listar: usa findByExcluidoFalse (ignora soft-deleted)")
+  @DisplayName("listar: usa findByExcluidoFalseAndTalhao_Fazenda_IdIn (ignora soft-deleted)")
   void listar_ignoraExcluidos() {
-    Talhao talhao = new Talhao();
-    talhao.setId(1L);
-    talhao.setNome("Talhão A");
+    Talhao talhao = novoTalhao(1L, 100L);
     Safra ativa = novaSafra(10L, talhao);
 
-    when(safraRepository.findByExcluidoFalse()).thenReturn(List.of(ativa));
+    when(fazendaUsuarioEscopoService.idsFazendasAcessiveis(1L)).thenReturn(List.of(100L));
+    when(safraRepository.findByExcluidoFalseAndTalhao_Fazenda_IdInOrderByDataPlantioDesc(
+            List.of(100L)))
+        .thenReturn(List.of(ativa));
+    when(movimentacaoEstoqueRepository.findBySafra_IdOrderByIdAsc(10L)).thenReturn(List.of());
 
-    List<SafraResponseDto> result = service.listar();
+    List<SafraResponseDto> result = service.listar(1L);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).id()).isEqualTo(10L);
     assertThat(result.get(0).talhaoNome()).isEqualTo("Talhão A");
-    verify(safraRepository).findByExcluidoFalse();
+    verify(safraRepository).findByExcluidoFalseAndTalhao_Fazenda_IdInOrderByDataPlantioDesc(List.of(100L));
+  }
+
+  @Test
+  @DisplayName("listar: sem fazendas vinculadas devolve lista vazia")
+  void listar_semFazendas_retornaVazio() {
+    when(fazendaUsuarioEscopoService.idsFazendasAcessiveis(1L)).thenReturn(List.of());
+
+    List<SafraResponseDto> result = service.listar(1L);
+
+    assertThat(result).isEmpty();
+    verify(safraRepository, never()).findByExcluidoFalseAndTalhao_Fazenda_IdInOrderByDataPlantioDesc(any());
   }
 
   @Test
@@ -82,7 +100,7 @@ class SafraServiceTest {
             "Safra 2025", null, "Soja", SafraStatus.PLANTADA,
             LocalDate.now(), null, null, null, null, null);
 
-    assertThatThrownBy(() -> service.criar(dto))
+    assertThatThrownBy(() -> service.criar(1L, dto))
         .isInstanceOf(ResponseStatusException.class)
         .extracting(e -> ((ResponseStatusException) e).getStatusCode())
         .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -99,7 +117,7 @@ class SafraServiceTest {
             "Safra 2025", 999L, "Soja", SafraStatus.PLANTADA,
             LocalDate.now(), null, null, null, null, null);
 
-    assertThatThrownBy(() -> service.criar(dto))
+    assertThatThrownBy(() -> service.criar(1L, dto))
         .isInstanceOf(ResponseStatusException.class)
         .extracting(e -> ((ResponseStatusException) e).getStatusCode())
         .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -110,11 +128,12 @@ class SafraServiceTest {
   @Test
   @DisplayName("excluir: soft-delete grava usuário, justificativa, excluido_em e excluido=true")
   void excluir_softDelete_gravaCamposDeAuditoria() {
-    Talhao talhao = new Talhao();
-    talhao.setId(1L);
-    talhao.setNome("Talhão A");
+    Talhao talhao = novoTalhao(1L, 100L);
     Safra safra = novaSafra(20L, talhao);
-    when(safraRepository.findByIdAndExcluidoFalse(20L)).thenReturn(Optional.of(safra));
+    when(fazendaUsuarioEscopoService.idsFazendasAcessiveis(3L)).thenReturn(List.of(100L));
+    when(safraRepository.findByIdAndExcluidoFalseAndTalhao_Fazenda_IdIn(
+            eq(20L), eq(List.of(100L))))
+        .thenReturn(Optional.of(safra));
 
     Usuario usuario = new Usuario();
     usuario.setId(3L);
@@ -130,15 +149,28 @@ class SafraServiceTest {
   }
 
   @Test
-  @DisplayName("excluir: safra inexistente lança 404 NOT_FOUND")
+  @DisplayName("excluir: safra inexistente ou fora do escopo lança 404 NOT_FOUND")
   void excluir_safraInexistente_lancaNotFound() {
-    when(safraRepository.findByIdAndExcluidoFalse(404L)).thenReturn(Optional.empty());
+    when(fazendaUsuarioEscopoService.idsFazendasAcessiveis(1L)).thenReturn(List.of(100L));
+    when(safraRepository.findByIdAndExcluidoFalseAndTalhao_Fazenda_IdIn(
+            eq(404L), eq(List.of(100L))))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () -> service.excluir(404L, new SafraExclusaoRequestDto("qualquer"), 1L))
         .isInstanceOf(ResponseStatusException.class)
         .extracting(e -> ((ResponseStatusException) e).getStatusCode())
         .isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  private Talhao novoTalhao(long talhaoId, long fazendaId) {
+    Fazenda fazenda = new Fazenda();
+    fazenda.setId(fazendaId);
+    Talhao talhao = new Talhao();
+    talhao.setId(talhaoId);
+    talhao.setFazenda(fazenda);
+    talhao.setNome("Talhão A");
+    return talhao;
   }
 
   private Safra novaSafra(long id, Talhao talhao) {

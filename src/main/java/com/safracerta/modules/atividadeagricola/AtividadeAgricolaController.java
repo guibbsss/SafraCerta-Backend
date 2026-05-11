@@ -5,6 +5,7 @@ import com.safracerta.modules.atividadeagricola.dto.AtividadeAgricolaResponseDto
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/atividades-agricolas")
@@ -25,36 +27,47 @@ public class AtividadeAgricolaController {
     this.atividadeAgricolaService = atividadeAgricolaService;
   }
 
-  @GetMapping
-  public List<AtividadeAgricolaResponseDto> listar() {
-    return atividadeAgricolaService.listar();
+  @GetMapping("/talhao/{talhaoId}")
+  public List<AtividadeAgricolaResponseDto> listarPorTalhao(
+      Authentication auth, @PathVariable Long talhaoId) {
+    return atividadeAgricolaService.listarPorTalhao(requireUsuarioId(auth), talhaoId);
   }
 
-  @GetMapping("/talhao/{talhaoId}")
-  public List<AtividadeAgricolaResponseDto> listarPorTalhao(@PathVariable Long talhaoId) {
-    return atividadeAgricolaService.listarPorTalhao(talhaoId);
+  @GetMapping
+  public List<AtividadeAgricolaResponseDto> listar(Authentication auth) {
+    return atividadeAgricolaService.listar(requireUsuarioId(auth));
   }
 
   @GetMapping("/{id}")
-  public AtividadeAgricolaResponseDto buscar(@PathVariable Long id) {
-    return atividadeAgricolaService.buscar(id);
+  public AtividadeAgricolaResponseDto buscar(Authentication auth, @PathVariable Long id) {
+    return atividadeAgricolaService.buscar(id, requireUsuarioId(auth));
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public AtividadeAgricolaResponseDto criar(@Valid @RequestBody AtividadeAgricolaRequestDto body) {
-    return atividadeAgricolaService.criar(body);
+  public AtividadeAgricolaResponseDto criar(
+      Authentication auth, @Valid @RequestBody AtividadeAgricolaRequestDto body) {
+    return atividadeAgricolaService.criar(requireUsuarioId(auth), body);
   }
 
   @PutMapping("/{id}")
   public AtividadeAgricolaResponseDto atualizar(
-      @PathVariable Long id, @Valid @RequestBody AtividadeAgricolaRequestDto body) {
-    return atividadeAgricolaService.atualizar(id, body);
+      Authentication auth,
+      @PathVariable Long id,
+      @Valid @RequestBody AtividadeAgricolaRequestDto body) {
+    return atividadeAgricolaService.atualizar(requireUsuarioId(auth), id, body);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void excluir(@PathVariable Long id) {
-    atividadeAgricolaService.excluir(id);
+  public void excluir(Authentication auth, @PathVariable Long id) {
+    atividadeAgricolaService.excluir(requireUsuarioId(auth), id);
+  }
+
+  private static Long requireUsuarioId(Authentication auth) {
+    if (auth == null || auth.getPrincipal() == null) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória");
+    }
+    return (Long) auth.getPrincipal();
   }
 }

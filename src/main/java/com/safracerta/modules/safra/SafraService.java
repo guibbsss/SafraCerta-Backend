@@ -1,5 +1,6 @@
 package com.safracerta.modules.safra;
 
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.movimentacaoestoque.MovimentacaoEstoqueRepository;
 import com.safracerta.modules.movimentacaoestoque.MovimentacaoEstoqueService;
 import com.safracerta.modules.movimentacaoestoque.TipoMovimentacaoEstoque;
@@ -33,40 +34,54 @@ public class SafraService {
   private final UsuarioRepository usuarioRepository;
   private final MovimentacaoEstoqueService movimentacaoEstoqueService;
   private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+  private final FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
   public SafraService(
       SafraRepository safraRepository,
       TalhaoRepository talhaoRepository,
       UsuarioRepository usuarioRepository,
       MovimentacaoEstoqueService movimentacaoEstoqueService,
-      MovimentacaoEstoqueRepository movimentacaoEstoqueRepository) {
+      MovimentacaoEstoqueRepository movimentacaoEstoqueRepository,
+      FazendaUsuarioEscopoService fazendaUsuarioEscopoService) {
     this.safraRepository = safraRepository;
     this.talhaoRepository = talhaoRepository;
     this.usuarioRepository = usuarioRepository;
     this.movimentacaoEstoqueService = movimentacaoEstoqueService;
     this.movimentacaoEstoqueRepository = movimentacaoEstoqueRepository;
+    this.fazendaUsuarioEscopoService = fazendaUsuarioEscopoService;
   }
 
   @Transactional(readOnly = true)
-  public List<SafraResponseDto> listar() {
-    return safraRepository.findByExcluidoFalse().stream().map(this::toResponse).toList();
-  }
-
-  @Transactional(readOnly = true)
-  public SafraResponseDto buscar(Long id) {
+  public List<SafraResponseDto> listar(Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
     return safraRepository
-        .findByIdAndExcluidoFalse(id)
+        .findByExcluidoFalseAndTalhao_Fazenda_IdInOrderByDataPlantioDesc(fazendaIds).stream()
+        .map(this::toResponse)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public SafraResponseDto buscar(Long id, Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    return safraRepository
+        .findByIdAndExcluidoFalseAndTalhao_Fazenda_IdIn(id, fazendaIds)
         .map(this::toResponse)
         .orElseThrow(this::notFound);
   }
 
   @Transactional
-  public SafraResponseDto criar(SafraRequestDto dto) {
+  public SafraResponseDto criar(Long usuarioId, SafraRequestDto dto) {
     log.info(
         "POST /safras: consumosInsumo {} itens",
         dto.consumosInsumo() == null ? "null" : String.valueOf(dto.consumosInsumo().size()));
 
-    Talhao talhao = resolveTalhao(dto.talhaoId());
+    Talhao talhao = resolveTalhaoParaUsuario(dto.talhaoId(), usuarioId);
     Safra s = new Safra();
     s.setTalhao(talhao);
     apply(s, dto);
@@ -87,25 +102,36 @@ public class SafraService {
             fazendaId, c.insumoId(), c.quantidade(), salvo, agora);
       }
     } else {
-      log.debug("Criar safra id={}: sem consumosInsumo no pedido (nenhuma saída de stock)", salvo.getId());
+      log.debug(
+          "Criar safra id={}: sem consumosInsumo no pedido (nenhuma saída de stock)", salvo.getId());
     }
 
     return toResponse(salvo);
   }
 
   @Transactional
-  public SafraResponseDto atualizar(Long id, SafraRequestDto dto) {
-    Safra s = safraRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
-    s.setTalhao(resolveTalhao(dto.talhaoId()));
+  public SafraResponseDto atualizar(Long id, Long usuarioId, SafraRequestDto dto) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    Safra s =
+        safraRepository
+            .findByIdAndExcluidoFalseAndTalhao_Fazenda_IdIn(id, fazendaIds)
+            .orElseThrow(this::notFound);
+    s.setTalhao(resolveTalhaoParaUsuario(dto.talhaoId(), usuarioId));
     apply(s, dto);
     return toResponse(safraRepository.save(s));
   }
 
-  private Talhao resolveTalhao(Long talhaoId) {
+  private Talhao resolveTalhaoParaUsuario(Long talhaoId, Long usuarioId) {
     if (talhaoId == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Talhão é obrigatório");
     }
-    return talhaoRepository.findById(talhaoId).orElseThrow(this::talhaoNotFound);
+    Talhao talhao = talhaoRepository.findById(talhaoId).orElseThrow(this::talhaoNotFound);
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(
+        usuarioId, talhao.getFazenda().getId());
+    return talhao;
   }
 
   private static void validarConsumosSemDuplicados(List<SafraConsumoInsumoDto> consumos) {
@@ -120,7 +146,14 @@ public class SafraService {
 
   @Transactional
   public void excluir(Long id, SafraExclusaoRequestDto dto, Long usuarioId) {
-    Safra s = safraRepository.findByIdAndExcluidoFalse(id).orElseThrow(this::notFound);
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      throw notFound();
+    }
+    Safra s =
+        safraRepository
+            .findByIdAndExcluidoFalseAndTalhao_Fazenda_IdIn(id, fazendaIds)
+            .orElseThrow(this::notFound);
     Usuario u =
         usuarioRepository
             .findById(usuarioId)

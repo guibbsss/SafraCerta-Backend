@@ -2,6 +2,7 @@ package com.safracerta.modules.talhao;
 
 import com.safracerta.modules.fazenda.Fazenda;
 import com.safracerta.modules.fazenda.FazendaRepository;
+import com.safracerta.modules.fazenda.FazendaUsuarioEscopoService;
 import com.safracerta.modules.talhao.dto.TalhaoRequestDto;
 import com.safracerta.modules.talhao.dto.TalhaoResponseDto;
 import java.util.List;
@@ -15,48 +16,74 @@ public class TalhaoService {
 
   private final TalhaoRepository talhaoRepository;
   private final FazendaRepository fazendaRepository;
+  private final FazendaUsuarioEscopoService fazendaUsuarioEscopoService;
 
-  public TalhaoService(TalhaoRepository talhaoRepository, FazendaRepository fazendaRepository) {
+  public TalhaoService(
+      TalhaoRepository talhaoRepository,
+      FazendaRepository fazendaRepository,
+      FazendaUsuarioEscopoService fazendaUsuarioEscopoService) {
     this.talhaoRepository = talhaoRepository;
     this.fazendaRepository = fazendaRepository;
+    this.fazendaUsuarioEscopoService = fazendaUsuarioEscopoService;
   }
 
   @Transactional(readOnly = true)
-  public List<TalhaoResponseDto> listar() {
-    return talhaoRepository.findAll().stream().map(this::toResponse).toList();
+  public List<TalhaoResponseDto> listar(Long usuarioId) {
+    List<Long> fazendaIds = fazendaUsuarioEscopoService.idsFazendasAcessiveis(usuarioId);
+    if (fazendaIds.isEmpty()) {
+      return List.of();
+    }
+    return talhaoRepository.findByFazenda_IdInOrderByNomeAsc(fazendaIds).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
-  public TalhaoResponseDto buscar(Long id) {
-    return talhaoRepository.findById(id).map(this::toResponse).orElseThrow(this::notFound);
+  public List<TalhaoResponseDto> listarPorFazenda(Long usuarioId, Long fazendaId) {
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, fazendaId);
+    return talhaoRepository.findByFazenda_IdOrderByNomeAsc(fazendaId).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
-  @Transactional
-  public TalhaoResponseDto criar(TalhaoRequestDto dto) {
-    Fazenda fazenda =
-        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
-    Talhao t = new Talhao();
-    t.setFazenda(fazenda);
-    apply(t, dto);
-    return toResponse(talhaoRepository.save(t));
-  }
-
-  @Transactional
-  public TalhaoResponseDto atualizar(Long id, TalhaoRequestDto dto) {
+  @Transactional(readOnly = true)
+  public TalhaoResponseDto buscar(Long id, Long usuarioId) {
     Talhao t = talhaoRepository.findById(id).orElseThrow(this::notFound);
-    Fazenda fazenda =
-        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
-    t.setFazenda(fazenda);
-    apply(t, dto);
-    return toResponse(talhaoRepository.save(t));
-  }
-
-  @Transactional
-  public void excluir(Long id) {
-    if (!talhaoRepository.existsById(id)) {
+    if (!fazendaUsuarioEscopoService.usuarioPodeAcessarFazenda(
+        usuarioId, t.getFazenda().getId())) {
       throw notFound();
     }
-    talhaoRepository.deleteById(id);
+    return toResponse(t);
+  }
+
+  @Transactional
+  public TalhaoResponseDto criar(Long usuarioId, TalhaoRequestDto dto) {
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, dto.fazendaId());
+    Fazenda fazenda =
+        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
+    Talhao talhao = new Talhao();
+    talhao.setFazenda(fazenda);
+    apply(talhao, dto);
+    return toResponse(talhaoRepository.save(talhao));
+  }
+
+  @Transactional
+  public TalhaoResponseDto atualizar(Long id, Long usuarioId, TalhaoRequestDto dto) {
+    Talhao t = talhaoRepository.findById(id).orElseThrow(this::notFound);
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, t.getFazenda().getId());
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, dto.fazendaId());
+    Fazenda fazenda =
+        fazendaRepository.findById(dto.fazendaId()).orElseThrow(this::fazendaNotFound);
+    t.setFazenda(fazenda);
+    apply(t, dto);
+    return toResponse(talhaoRepository.save(t));
+  }
+
+  @Transactional
+  public void excluir(Long id, Long usuarioId) {
+    Talhao t = talhaoRepository.findById(id).orElseThrow(this::notFound);
+    fazendaUsuarioEscopoService.garantirEscritaNaFazenda(usuarioId, t.getFazenda().getId());
+    talhaoRepository.delete(t);
   }
 
   private void apply(Talhao t, TalhaoRequestDto dto) {
